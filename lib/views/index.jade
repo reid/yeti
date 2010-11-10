@@ -15,7 +15,12 @@ div#health
   div.module
     h4 Comet
     span#smode Offline
-  div#status Starting up.
+  div#actions
+    button(type: "button", id: "reject") Reject
+    div#status JavaScript, where are you?
+    button(type: "button", id: "accept") Accept
+    div.clear
+script(src: "/inc/json2.js")
 script(src: "/inc/run.js")
 script
   !=bootstrap

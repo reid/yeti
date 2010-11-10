@@ -16,6 +16,8 @@ YETI = (function yeti (window, document, evaluator) {
         tests = [], // tests to run
         elementCache = {}, // cache of getElementById calls
         idle = true, // = !(tests_running)
+        nativeXHR = window[XMLHTTPREQUEST],
+        xhr, // returns an XMLHttpRequest
         TIMEOUT, // see START, config.timeout || DEFAULT_TIMEOUT
         source, // the EventSource
         wait, // holder for the wait() function
@@ -71,6 +73,10 @@ YETI = (function yeti (window, document, evaluator) {
     // calls the provided function after TIMEOUT ms
     // unless reset by phantom() or by calling reaper again
     function reaper (fn) {
+        fn = function () {
+            console.log("reaper has arrived.");
+            fn();
+        };
         var second = 1000;
         phantom();
         reaperTimeout = setTimeout(fn, TIMEOUT);
@@ -96,7 +102,8 @@ YETI = (function yeti (window, document, evaluator) {
     // this may be from EventSource or XHR
     function incoming (data) {
         smode("Data");
-        var response = evaluator(data);
+        if ("string" === typeof data) data = JSON.parse(data);
+        var response = data;
         if (response.shutdown) {
             // the server was shutdown. no point in reconnecting.
             if (source) source.close();
@@ -141,17 +148,17 @@ YETI = (function yeti (window, document, evaluator) {
         }
     }
 
+    if (nativeXHR) {
+        xhr = function () { return new nativeXHR(); }
+    } else {
+        xhr = function () {
+            try {
+                return new window.ActiveXObject("Microsoft.XMLHTTP");
+            } catch (e) {}
+        };
+    }
+
     function patientXHR () {
-        var xhr, nativeXHR = window[XMLHTTPREQUEST];
-        if (nativeXHR) {
-            xhr = function () { return new nativeXHR(); }
-        } else {
-            xhr = function () {
-                try {
-                    return new window.ActiveXObject("Microsoft.XMLHTTP");
-                } catch (e) {}
-            };
-        }
         return function waitXHR () {
             var poll,
                 req = xhr();
@@ -185,16 +192,95 @@ YETI = (function yeti (window, document, evaluator) {
         };
     }
 
+    // Accept Reject buttons
+    function override (pass) {
+        var url = frame.location.href;
+        console.log(url);
+        if (url === "about:blank") return;
+
+        var r = {
+            results : {
+                name : url,
+                total : 1,
+                passed : 0,
+                failed : 0,
+                data : {
+                    name : "Manual test (yeti virtual test)",
+                    passed : 0,
+                    failed : 0,
+                    data : {
+                        name : "Accept button should be pressed",
+                        message : "",
+                        result: "pass"
+                    }
+                }
+            }
+        };
+
+        // kind of hacky!
+
+        if (pass) {
+            r.results.passed = 1;
+            r.results.data.passed = 1;
+        } else {
+            r.results.failed = 1;
+            r.results.data.failed = 1;
+            // TODO accept user input
+            r.results.data.data.message = "Reject button should not be pressed.";
+            r.results.data.data.result = "fail";
+        }
+
+        // send results!
+        // TODO optimize. lots of dup code. got 'er done.
+        var poll,
+            req = xhr();
+        if (!req) return status("Unable to create " + XMLHTTPREQUEST);
+        req.open("POST", "/results", true);
+
+        // prevent memory leaks by polling
+        // instead of using onreadystatechange
+        poll = window.setInterval(function () {
+            if (req[READYSTATE] === 0) {
+                // server is down
+            } else if (req[READYSTATE] === 4) {
+                var data = req.responseText;
+console.log("next from xhr?");
+                if (req.status === 200) next();
+                else incoming({shutdown:"true"}); // uh-oh!
+            } else {
+                return;
+            }
+            // readystate is either 0 or 4, we're done.
+            req = null;
+            window.clearInterval(poll);
+        }, 50);
+
+        status("Submitting result...");
+        smode("XHR Data");
+        req.setRequestHeader("Content-Type", "application/json");
+        req.send(JSON.stringify(r));
+    }
+
+    function attachEvent (ev, el, cb) {
+        if (el.addEventListener) {
+            el.addEventListener(ev, cb, false);
+        } else if (el.attachEvent) {
+            el.attachEvent('on' + ev, cb);
+        }
+    };
+
     // run the next test
     function dequeue () {
         idle = false;
         var url = tests.shift();
         status(WAIT_FOR + "results: " + url);
+console.log("go! " + url);
         navigate(frame, url);
+console.log("next from dequeue?");
         reaper(YETI.next);
     }
 
-    // stop running all tests, restart with dequeue()
+    // stop running all tests, restart with dequeu()
     function complete () {
         idle = true;
         phantom();
@@ -213,6 +299,12 @@ YETI = (function yeti (window, document, evaluator) {
                 forceEV = transport == "eventsource";
             TIMEOUT = config.timeout || DEFAULT_TIMEOUT;
             frame = createFrame();
+            attachEvent("click", _("reject"), function () {
+                override(false);
+            });
+            attachEvent("click", _("accept"), function () {
+                override(true);
+            });
             wait = (
                 supportEV
                 && (!forceXHR || forceEV)
@@ -228,11 +320,13 @@ YETI = (function yeti (window, document, evaluator) {
                _("beat").style.visibility = "hidden";
             }, 50);
             heartbeats++;
+console.log("next from beat?");
             reaper(YETI.next); // restart the reaper timer
         },
         // called by run.js when it's ready to move on
         next : function NEXT () {
-            tests.length ? dequeue() : complete();
+console.log("called next...");
+            // tests.length ? dequeue() : complete();
         }
     };
 
