@@ -42,13 +42,9 @@ YETI = (function yeti (window, document) {
     }
 
     function navigate (frame, url) {
-        if (window.opera) {
-		setTimeout(function() {
-			frame.location.href = url;
-		}, 500);
-	} else {
-		frame.location.replace(url);
-	}
+	setTimeout(function() {
+		frame.location.href = url;
+	}, 750);
     }
 
     // wrappers around setContent
