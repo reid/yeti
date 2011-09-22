@@ -10,7 +10,7 @@ YETI = (function yeti (window, document) {
         DEFAULT_TIMEOUT = 30000, // after this many ms of no activity, skip the test
         setTimeout = window.setTimeout,
         clearTimeout = window.clearTimeout,
-        socket = new io.Socket(), // socket.io
+        socket = io.connect(location.href), // socket.io
         heartbeats = 0, // counter for YETI.heartbeat() calls
         reaperSecondsRemaining = 0, // counter for UI
         frame = null, // test target frame's contentWindow
@@ -97,7 +97,7 @@ YETI = (function yeti (window, document) {
     // handling incoming data from the server
     // this may be from EventSource or XHR
     function incoming (response) {
-        if (response.tests.length && response.batch) {
+        if (response && response.tests.length && response.batch) {
             mode("Run");
             heartbeats = 0;
             startTime = (new Date).getTime();
@@ -133,7 +133,7 @@ YETI = (function yeti (window, document) {
         navigate(frame, "about:blank");
         status("Done. " + WAIT_FOR + "new tests.");
         mode("Idle");
-        socket.send({
+        socket.json.send({
             status: "done",
             batch: currentBatch
         });
@@ -150,7 +150,6 @@ YETI = (function yeti (window, document) {
     }
 
     function wait () {
-        socket.connect();
         socket.on("connect", function () {
             smode("Waiting");
             status(WAIT_TESTS);

@@ -33,11 +33,10 @@
     { "postinstall" : "./scripts/postinstall.sh"
     }
 , "dependencies" :
-    { "express" : "~2.2.1"
-    , "connect" : "~1.2.3"
+    { "express" : "~2.4"
     , "jade" : "~0.10.4"
     , "nopt" : "~1.0"
-    , "socket.io" : "~0.7"
+    , "socket.io" : "~0.8"
     }
 , "licenses" :
   [ { "type" : "BSD"
