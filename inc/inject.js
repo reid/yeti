@@ -70,15 +70,9 @@ function $yetify (config) {
         }
 
         function submit (data) {
-
             self = $yetify.config;
-
             if (!self.url) return;
-
-            var reporter = new TestReporter(self.url, FormatJSON);
-            reporter.addField("id", self.id);
-            reporter.report(data.results);
-
+	        YETI.report(data);
         };
 
         w.onerror = function (e) {
