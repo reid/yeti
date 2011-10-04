@@ -22,6 +22,7 @@ YETI = (function yeti (window, document) {
         TIMEOUT, // see START, config.timeout || DEFAULT_TIMEOUT
         startTime, // for elapsed time
         currentURL, // The current test url
+        clientID, // The socket.io client id given on first request
         reaperTimeout, // reaper(fn)'s timeout to call fn
         syncUITimeout; // reaper(fn)'s timeout to sync UI
 
@@ -195,7 +196,10 @@ YETI = (function yeti (window, document) {
         });
 
         //socket.on("message", incoming);
-
+        
+        socket.on("ready", function(msg) {
+            clientID = msg.id;
+        });
         socket.on("tests", incoming);
         socket.on("abort", abort);
         socket.on("reset", reset);
@@ -205,7 +209,7 @@ YETI = (function yeti (window, document) {
         });
 
         socket.on("disconnect", function () {
-            setTimeout(wait, 5000);
+            setTimeout(wait, 1500);
             status(RETRY);
         });
     }
@@ -214,12 +218,14 @@ YETI = (function yeti (window, document) {
         smode("Results Sent!");
         status('Sending results to server.');
         navigate('about:blank');
-        socket.json.send({
-            status: 'results',
+        var data = {
             batch: currentBatch,
             results: data.results,
+            tests: tests.length,
+            clientID: clientID,
             ua: navigator.userAgent
-        });
+        };
+        socket.emit('results', data);
     };
 
     // public API
