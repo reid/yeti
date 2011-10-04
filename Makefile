@@ -7,12 +7,12 @@ install-stable:
 	npm install yeti
 
 install:
-	npm install .
+	npm -g install .
 
 link:
 	npm link .
 
 remove:
-	npm uninstall yeti
+	npm -g uninstall yeti
 
 .PHONY: all install-stable install link remove test
