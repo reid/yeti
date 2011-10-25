@@ -86,7 +86,7 @@ YETI = (function yeti (window, document) {
           return function() {
             fn(FAILED);
           };  
-        })(fn), TIMEOUT);
+        })(fn), (TIMEOUT - 3000));
         reaperSecondsRemaining = Math.floor(TIMEOUT / second);
         (function SYNCUI () {
             var bpm = Math.round(
@@ -110,7 +110,7 @@ YETI = (function yeti (window, document) {
     // handling incoming data from the server
     // this may be from EventSource or XHR
     function incoming (response) {
-        if (response && response.tests && response.tests.length && response.batch) {
+        if (response && response.tests && response.tests.length && response.batch && !currentBatch) {
             mode("Run");
             heartbeats = 0;
             startTime = (new Date).getTime();
@@ -167,8 +167,8 @@ YETI = (function yeti (window, document) {
         status("Done. " + WAIT_FOR + "new tests.");
         mode("Idle");
         if (currentBatch) {
-            socket.json.send({
-                status: "done",
+            socket.emit('done', {
+                clientID: clientID,
                 batch: currentBatch
             });
             smode("Done");
@@ -198,7 +198,9 @@ YETI = (function yeti (window, document) {
         //socket.on("message", incoming);
         
         socket.on("ready", function(msg) {
-            clientID = msg.id;
+            if (!clientID) {
+                clientID = msg.id;
+            }
         });
         socket.on("tests", incoming);
         socket.on("abort", abort);
