@@ -7,6 +7,9 @@ div#health
     h4 Beats
     span#heartbeats 0
   div.module
+    h4 Tests 
+    span#tests 0
+  div.module
     h4 Timeout
     span#timer ???
   div.module
@@ -17,7 +20,6 @@ div#health
     span#smode Offline
   div#status Starting up.
 script(src: "/socket.io/socket.io.js")
-script(src: "/inc/json2.js")
 script(src: "/inc/run.js")
 script
   !{bootstrap}

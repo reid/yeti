@@ -7,10 +7,11 @@ YETI = (function yeti (window, document) {
         READYSTATE = "readyState",
         CONTENTWINDOW = "contentWindow",
         ENDPOINT = "/tests/wait",
+        FAILED = 'THIS TEST FAILED',
         DEFAULT_TIMEOUT = 30000, // after this many ms of no activity, skip the test
         setTimeout = window.setTimeout,
         clearTimeout = window.clearTimeout,
-        socket = new io.Socket(), // socket.io
+        socket = io.connect('/yetitests'), // socket.io
         heartbeats = 0, // counter for YETI.heartbeat() calls
         reaperSecondsRemaining = 0, // counter for UI
         frame = null, // test target frame's contentWindow
@@ -20,6 +21,8 @@ YETI = (function yeti (window, document) {
         elementCache = {}, // cache of getElementById calls
         TIMEOUT, // see START, config.timeout || DEFAULT_TIMEOUT
         startTime, // for elapsed time
+        currentURL, // The current test url
+        clientID, // The socket.io client id given on first request
         reaperTimeout, // reaper(fn)'s timeout to call fn
         syncUITimeout; // reaper(fn)'s timeout to sync UI
 
@@ -42,13 +45,13 @@ YETI = (function yeti (window, document) {
     }
 
     function navigate (frame, url) {
-        if (window.opera) {
-		setTimeout(function() {
-			frame.location.href = url;
-		}, 500);
-	} else {
-		frame.location.replace(url);
-	}
+        setTimeout((function(frame, url) {
+            return function() {
+                if (frame && frame.location) {
+                    frame.location.href = url;
+                }
+            }
+        })(frame, url), 850);
     }
 
     // wrappers around setContent
@@ -79,7 +82,11 @@ YETI = (function yeti (window, document) {
     function reaper (fn) {
         var second = 1000;
         phantom();
-        reaperTimeout = setTimeout(fn, TIMEOUT);
+        reaperTimeout = setTimeout((function(fn) {
+          return function() {
+            fn(FAILED);
+          };  
+        })(fn), (TIMEOUT - 3000));
         reaperSecondsRemaining = Math.floor(TIMEOUT / second);
         (function SYNCUI () {
             var bpm = Math.round(
@@ -87,21 +94,23 @@ YETI = (function yeti (window, document) {
             );
             if (!isNaN(bpm) && bpm > 0) {
                 // add a leading zero if needed, always 2 digits
-                if ((""+bpm).length < 2) bpm = "0" + bpm;
+                if ((""+bpm).length < 3) bpm = "0" + bpm;
                 setContent("pulse", bpm);
             }
             setContent("timer", reaperSecondsRemaining);
             setContent("heartbeats", heartbeats);
+            setContent("tests", tests.length);
             reaperSecondsRemaining--;
-            if (reaperSecondsRemaining > 0)
+            if (reaperSecondsRemaining > 0) {
                 syncUITimeout = setTimeout(SYNCUI, second);
+            }
         })();
     }
 
     // handling incoming data from the server
     // this may be from EventSource or XHR
     function incoming (response) {
-        if (response.tests.length && response.batch) {
+        if (response && response.tests && response.tests.length && response.batch && !currentBatch) {
             mode("Run");
             heartbeats = 0;
             startTime = (new Date).getTime();
@@ -113,22 +122,42 @@ YETI = (function yeti (window, document) {
                 tests = response.tests;
                 dequeue();
             }
-        } else {
-            smode("Malformed Data");
         }
+    }
+
+    function reset() {
+        abort();
+        smode("Reset");
+        status("Resetting this browser");
+        setTimeout(function() {
+            location.href = 'refresh/';
+        }, 1000);
+    }
+
+    function abort() {
+        smode("Abort Batch");
+        mode("Idle");
+        status("Abort received, waiting for server..");
+        heartbeats = 0;
+        navigate(frame, 'about:blank');
+        currentBatch = null;
+        batches = [];
+        phantom();
     }
 
     // run the next test
     function dequeue () {
         var url = tests.shift();
-	if (url) {
-        	status(WAIT_FOR + "results: " + url);
-        	navigate(frame, url);
-        	reaper(YETI.next);
-	} else {
-		//If we get here, something may be wrong
-		complete();
-	}
+        if (url) {
+            smode('Fetch');
+            currentURL = url;
+            status("Running test: " + url);
+            navigate(frame, url);
+            reaper(YETI.next);
+        } else {
+            //If we get here, something may be wrong
+            complete();
+        }
     }
 
     // stop running all tests, restart with dequeue()
@@ -137,36 +166,69 @@ YETI = (function yeti (window, document) {
         navigate(frame, "about:blank");
         status("Done. " + WAIT_FOR + "new tests.");
         mode("Idle");
-        socket.send({
-            status: "done",
-            batch: currentBatch
-        });
+        if (currentBatch) {
+            socket.emit('done', {
+                clientID: clientID,
+                batch: currentBatch
+            });
+            smode("Done");
+        }
 
         currentBatch = null;
         if (batches.length) {
             for (var id in batches) {
                 // only need one!
                 currentBatch = id;
-                tests = batches[id];
-                return dequeue();
+                if (currentBatch) {
+                    tests = batches[id];
+                    if (tests && tests.length) {
+                        return dequeue();
+                    }
+                }
             }
         }
     }
 
     function wait () {
-        socket.connect();
         socket.on("connect", function () {
             smode("Waiting");
             status(WAIT_TESTS);
         });
 
-        socket.on("message", incoming);
+        //socket.on("message", incoming);
+        
+        socket.on("ready", function(msg) {
+            if (!clientID) {
+                clientID = msg.id;
+            }
+        });
+        socket.on("tests", incoming);
+        socket.on("abort", abort);
+        socket.on("reset", reset);
+        socket.on("exit", abort);
+        socket.on("complete", function() {
+            smode("Complete");
+        });
 
         socket.on("disconnect", function () {
-            setTimeout(wait, 5000);
+            setTimeout(wait, 1500);
             status(RETRY);
         });
     }
+
+    var report = function(data) {
+        smode("Results Sent!");
+        status('Sending results to server.');
+        navigate('about:blank');
+        var data = {
+            batch: currentBatch,
+            results: data.results,
+            tests: tests.length,
+            clientID: clientID,
+            ua: navigator.userAgent
+        };
+        socket.emit('results', data);
+    };
 
     // public API
     return {
@@ -188,8 +250,27 @@ YETI = (function yeti (window, document) {
             reaper(YETI.next); // restart the reaper timer
         },
         // called by run.js when it's ready to move on
-        next : function NEXT () {
+        next : function NEXT (f) {
+            if (f === FAILED) {
+                report({
+                   results: {
+                        passed: 0,
+                        failed: 1,
+                        name: 'Timeout: ' + currentURL
+                   }
+                });
+            }
             tests.length ? dequeue() : complete();
+        },
+        abort: function ABORT () {
+            abort();
+        },
+        reset: function RESET () {
+            reset();
+        },
+        report: function REPORT (data) {
+            report(data);
+            YETI.next();
         }
     };
 
