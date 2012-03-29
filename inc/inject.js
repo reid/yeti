@@ -66,7 +66,7 @@ function $yetify (config) {
         } else {
             TestReporter = Y.Test.Reporter;
             FormatJSON = Y.Test.Format.JSON;
-            Y.UA.ie = fixIE9(Y.UA.ie);
+            //Y.UA.ie = fixIE9(Y.UA.ie);
         }
 
         function submit (data) {
@@ -76,6 +76,9 @@ function $yetify (config) {
         };
 
         w.onerror = function (e) {
+            if (e === 'Error loading script') {
+                return;
+            }
             submit({
                 results : {
                     name : href,
