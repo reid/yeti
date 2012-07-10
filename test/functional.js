@@ -21,6 +21,18 @@ if (process.env.TRAVIS) {
     };
 }
 
+function didNotThrow(topic) {
+    if (topic instanceof Error) {
+        assert.fail(topic, {}, "Topic error: " + topic.stack);
+    }
+}
+
+function getUrl() {
+    /*global window:true */
+    // This function runs in the scope of the web page.
+    return window.location.pathname;
+}
+
 function captureContext(batchContext) {
     return {
         topic: function (browser, lastTopic) {
@@ -29,11 +41,17 @@ function captureContext(batchContext) {
                 var timeout = setTimeout(function () {
                     vow.callback(new Error("The capture page took too long to load."));
                 }, 5000);
+
                 lastTopic.client.once("agentConnect", function (agent) {
-                    clearTimeout(timeout);
-                    vow.callback(null, {
-                        page: page,
-                        agent: agent
+                    lastTopic.client.once("agentSeen", function () {
+                        page.evaluate(getUrl, function (url) {
+                            clearTimeout(timeout);
+                            vow.callback(null, {
+                                url: url,
+                                page: page,
+                                agent: agent
+                            });
+                        });
                     });
                 });
 
@@ -60,6 +78,7 @@ function captureContext(batchContext) {
                 });
             });
         },
+        "did not throw": didNotThrow,
         "is ok": function (pageTopic) {
             assert.ok(pageTopic.page);
         },
@@ -156,14 +175,10 @@ function createBatchTopic(createBatchConfiguration) {
         batch.on("complete", function () {
             lastTopic.client.once("agentSeen", function (agent) {
                 clearTimeout(timeout);
-                pageTopic.page.evaluate(function () {
-                    /*global window:true */
-                    // This function runs in the scope of the web page.
-                    return window.location.pathname;
-                }, function (pathname) {
+                pageTopic.page.evaluate(getUrl, function (pathname) {
                     pageTopic.page.release();
                     vow.callback(null, {
-                        expectedPathname: lastTopic.pathname,
+                        expectedPathname: pageTopic.url,
                         finalPathname: pathname,
                         agentResults: results,
                         agentBeats: agentBeatFires,
@@ -180,6 +195,7 @@ function createBatchTopic(createBatchConfiguration) {
 function visitorContext(createBatchConfiguration) {
     return captureContext({
         topic: createBatchTopic(createBatchConfiguration),
+        "did not throw": didNotThrow,
         "the browser returned to the capture page": function (topic) {
             assert.strictEqual(topic.finalPathname, topic.expectedPathname);
         },
@@ -187,9 +203,9 @@ function visitorContext(createBatchConfiguration) {
             assert.strictEqual(topic.agentCompleteFires, 1);
         },
         "the agentSeen event fired for each test and for capture pages": function (topic) {
-            // Capture page. + Test pages. + Return to capture page.
-            // 1 + (Batch tests) + 1 = Expected fires.
-            assert.strictEqual(topic.agentSeenFires, createBatchConfiguration.tests.length + 2);
+            // Test pages. + Return to capture page.
+            // (Batch tests) + 1 = Expected fires.
+            assert.strictEqual(topic.agentSeenFires, createBatchConfiguration.tests.length + 1);
         },
         "the agentResults are well-formed": function (topic) {
             assert.isArray(topic.agentResults);
@@ -220,6 +236,7 @@ function visitorContext(createBatchConfiguration) {
 function errorContext(createBatchConfiguration) {
     return captureContext({
         topic: createBatchTopic(createBatchConfiguration),
+        "did not throw": didNotThrow,
         "the browser returned to the capture page": function (topic) {
             assert.strictEqual(topic.finalPathname, topic.expectedPathname);
         },
@@ -230,9 +247,9 @@ function errorContext(createBatchConfiguration) {
             assert.strictEqual(topic.agentCompleteFires, createBatchConfiguration.tests.length);
         },
         "the agentSeen event fired for capture pages": function (topic) {
-            // Capture page. + (Nothing; all tests invalid) + Return to capture page.
-            // 1 + 1 = Expected fires.
-            assert.strictEqual(topic.agentSeenFires, 2);
+            // (Nothing; all tests invalid) + Return to capture page.
+            // 1 = Expected fires.
+            assert.strictEqual(topic.agentSeenFires, 1);
         },
         "the agentResults is an empty array": function (topic) {
             assert.isArray(topic.agentResults);
@@ -298,6 +315,7 @@ function attachServerContext(testContext, explicitRoute) {
         teardown: function (server) {
             server.close();
         },
+        "did not throw": didNotThrow,
         "is connected": function (server) {
             assert.isNumber(server.address().port);
         },
@@ -314,6 +332,7 @@ function attachServerContext(testContext, explicitRoute) {
 
                 return hub;
             },
+            "did not throw": didNotThrow,
             "is ok": function (hub) {
                 assert.ok(hub.server);
             },
