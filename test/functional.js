@@ -230,7 +230,8 @@ function waitForPathChange(page, cb) {
     });
 
     page.set("onLoadStarted", function () {
-        if (process.env.TRAVIS) console.log(rand, "onLoadStarted, original pathname is", pathname);
+        if (process.env.TRAVIS) console.log(rand,
+            "onLoadStarted, original pathname is", originalPathname);
         (function pathnameObserver() {
             page.evaluate(getPathname, function (pathname) {
                 if (pathname !== originalPathname) {
