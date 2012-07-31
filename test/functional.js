@@ -222,20 +222,25 @@ function waitForPathChange(page, cb) {
     var originalPathname,
         attempts = 0;
 
+    var rand = Math.random() * 10000 | 0;
+
     page.evaluate(getPathname, function (pathname) {
         originalPathname = pathname;
         cb(pathname); // Record the first URL.
     });
 
     page.set("onLoadStarted", function () {
+        if (process.env.TRAVIS) console.log(rand, "onLoadStarted, original pathname is", pathname);
         (function pathnameObserver() {
             page.evaluate(getPathname, function (pathname) {
                 if (pathname !== originalPathname) {
-                    if (process.env.TRAVIS) console.log("onLoadStarted pathname changed to", pathname);
+                    if (process.env.TRAVIS) console.log(rand,
+                        "onLoadStarted pathname changed to", pathname,
+                        "after attempts =", attempts);
                     originalPathname = pathname;
                     cb(pathname);
-                } else if (attempts > 50) {
-                    if (process.env.TRAVIS) console.log("onLoadStarted pathname did not change, currently", pathname);
+                } else if (attempts > 500) {
+                    if (process.env.TRAVIS) console.log(rand, "onLoadStarted pathname did not change, currently", pathname);
                     attempts = 0;
                 } else {
                     attempts += 1;
