@@ -231,9 +231,11 @@ function waitForPathChange(page, cb) {
         (function pathnameObserver() {
             page.evaluate(getPathname, function (pathname) {
                 if (pathname !== originalPathname) {
+                    if (process.env.TRAVIS) console.log("onLoadStarted pathname changed to", pathname);
                     originalPathname = pathname;
                     cb(pathname);
-                } else if (attempts > 20) {
+                } else if (attempts > 50) {
+                    if (process.env.TRAVIS) console.log("onLoadStarted pathname did not change");
                     attempts = 0;
                 } else {
                     attempts += 1;
@@ -253,7 +255,7 @@ function clientFailureContext(createBatchConfiguration) {
                 agentErrorFires = 0,
                 agentSeenFires = 0,
                 agentBeatFires = 0,
-                timeout = setTimeout(function () {
+                timeout = setTimeout(function recoveryFailure() {
                     vow.callback(new Error("Recovery to capture page failed for " + lastTopic.url));
                     process.exit(1);
                 }, 20000),
