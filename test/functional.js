@@ -235,11 +235,11 @@ function waitForPathChange(page, cb) {
                     originalPathname = pathname;
                     cb(pathname);
                 } else if (attempts > 50) {
-                    if (process.env.TRAVIS) console.log("onLoadStarted pathname did not change");
+                    if (process.env.TRAVIS) console.log("onLoadStarted pathname did not change, currently", pathname);
                     attempts = 0;
                 } else {
                     attempts += 1;
-                    setTimeout(pathnameObserver, 10);
+                    setTimeout(pathnameObserver, 100);
                 }
             });
         }());
