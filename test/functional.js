@@ -217,7 +217,6 @@ function clientFailureContext(createBatchConfiguration) {
             var vow = this,
                 results = [],
                 sessionEndFires = 0,
-                connectionFires = 0,
                 timeout = setTimeout(function () {
                     vow.callback(new Error("Recovery to capture page failed for " + lastTopic.url));
                     process.exit(1);
@@ -238,10 +237,20 @@ function clientFailureContext(createBatchConfiguration) {
             // WebSocket connections that happen after dispatching
             // our test batch.
             hub.tower.on("connection", function (c) {
-                connectionFires += 1;
-                if (connectionFires >= 1 + createBatchConfiguration.tests.length) {
+                if (process.env.TRAVIS) console.log("sockjs connection", c);
+                if (lastTopic.client) {
+                    // Intermediate visits: test page.
+                    // Kill the Yeti Client session.
+                    // We should expect the Hub to send
+                    // the user back to the capture page.
+                    if (process.env.TRAVIS) console.log("killing client");
+                    lastTopic.client.end();
+                    delete lastTopic.client;
+                } else {
                     // Last visit: capture page.
+                    if (process.env.TRAVIS) console.log("capture page, finishing");
                     pageTopic.page.evaluate(getPathname, function (pathname) {
+                        if (process.env.TRAVIS) console.log("successful url inquiry, finished");
                         clearTimeout(timeout);
                         pageTopic.page.release();
                         vow.callback(null, {
@@ -251,13 +260,6 @@ function clientFailureContext(createBatchConfiguration) {
                             sessionEndFires: sessionEndFires
                         });
                     });
-                } else if (lastTopic.client) {
-                    // Intermediate visits: test page.
-                    // Kill the Yeti Client session.
-                    // We should expect the Hub to send
-                    // the user back to the capture page.
-                    lastTopic.client.end();
-                    delete lastTopic.client;
                 }
             });
 
