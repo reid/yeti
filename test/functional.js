@@ -211,53 +211,17 @@ function createBatchTopic(createBatchConfiguration) {
     };
 }
 
-function waitForPathChange(page, cb) {
-    // When PhantomJS loads a new page,
-    // begin checking for the new URL and
-    // call the callback with the new URL
-    // if one is detected within 200ms.
-    //
-    // XXX: When we can use PhantomJS 1.6,
-    // replace with the onUrlChanged event.
-    var originalPathname,
-        attempts = 0;
-
-    page.evaluate(getPathname, function (pathname) {
-        originalPathname = pathname;
-        cb(pathname); // Record the first URL.
-    });
-
-    page.set("onLoadStarted", function () {
-        (function pathnameObserver() {
-            page.evaluate(getPathname, function (pathname) {
-                if (pathname !== originalPathname) {
-                    originalPathname = pathname;
-                    cb(pathname);
-                } else if (attempts > 20) {
-                    attempts = 0;
-                } else {
-                    attempts += 1;
-                    setTimeout(pathnameObserver, 10);
-                }
-            });
-        }());
-    });
-}
-
 function clientFailureContext(createBatchConfiguration) {
     return captureContext({
         topic: function (pageTopic, browser, lastTopic, hub) {
             var vow = this,
                 results = [],
                 sessionEndFires = 0,
-                agentErrorFires = 0,
-                agentSeenFires = 0,
-                agentBeatFires = 0,
+                connectionFires = 0,
                 timeout = setTimeout(function () {
                     vow.callback(new Error("Recovery to capture page failed for " + lastTopic.url));
                     process.exit(1);
                 }, 20000),
-                visitedPaths = [],
                 clientSession,
                 batch;
 
@@ -269,30 +233,31 @@ function clientFailureContext(createBatchConfiguration) {
             // and then make sure the agent has moved back to
             // the capture page.
 
-            waitForPathChange(pageTopic.page, function (pathname) {
-                visitedPaths.push(pathname);
-                // Capture page + tests + Capture page
-                // 2 + tests = full test cycle
-                if (visitedPaths.length >= 2 + createBatchConfiguration.tests.length) {
-                    clearTimeout(timeout);
-                    pageTopic.page.release();
-                    vow.callback(null, {
-                        hub: hub,
-                        expectedPathname: pageTopic.url,
-                        finalPathname: pathname,
-                        sessionEndFires: sessionEndFires,
-                        visitedPaths: visitedPaths
+            // At this point, the connection to the capture page
+            // has been established. We now listen for browser
+            // WebSocket connections that happen after dispatching
+            // our test batch.
+            hub.tower.on("connection", function (c) {
+                connectionFires += 1;
+                if (connectionFires >= 1 + createBatchConfiguration.tests.length) {
+                    // Last visit: capture page.
+                    pageTopic.page.evaluate(getPathname, function (pathname) {
+                        clearTimeout(timeout);
+                        pageTopic.page.release();
+                        vow.callback(null, {
+                            hub: hub,
+                            expectedPathname: pageTopic.url,
+                            finalPathname: pathname,
+                            sessionEndFires: sessionEndFires
+                        });
                     });
-                } else if (pathname.indexOf("fixture") !== -1) {
-                    // The URL is a test page.
+                } else if (lastTopic.client) {
+                    // Intermediate visits: test page.
                     // Kill the Yeti Client session.
                     // We should expect the Hub to send
                     // the user back to the capture page.
                     lastTopic.client.end();
-                    // Note: we call end() before the
-                    // browser actually can listen to events;
-                    // loading has only just begun at this point.
-                    // This, we must buffer events for sending later.
+                    delete lastTopic.client;
                 }
             });
 
