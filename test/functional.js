@@ -243,7 +243,7 @@ function clientFailureContext(createBatchConfiguration) {
                     // Kill the Yeti Client session.
                     // We should expect the Hub to send
                     // the user back to the capture page.
-                    if (process.env.TRAVIS) console.log("killing client");
+                    if (process.env.TRAVIS) console.log("killing client", lastTopic.client);
                     lastTopic.client.end();
                     delete lastTopic.client;
                 } else {
