@@ -92,7 +92,8 @@ function captureContext(batchContext) {
 
                 page.open(lastTopic.url, function (status) {
                     if (status !== "success") {
-                        vow.callback(new Error("Failed to load page."));
+                        vow.callback(new Error("Failed to load page, URL: " + lastTopic.url +
+                               ", status: " + status));
                     }
                 });
             });
