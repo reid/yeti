@@ -63,6 +63,24 @@ var clientContext = exports.clientContext = function (subContext) {
                 assert.ok(hub);
                 assert.isNumber(hub.server.address().port);
             },
+            "when requesting the main page over HTTP": {
+                topic: function (hub) {
+                    var vow = this;
+                    http.get({
+                        port: hub.server.address().port
+                    }, function (res) {
+                        vow.callback(null, res);
+                    }).on("error", vow.callback);
+                },
+                "did not error": function (res) {
+                    if (res instanceof Error) {
+                        assert.fail(res, {}, "Topic error: " + res.stack);
+                    }
+                },
+                "returns the correct response code": function (res) {
+                    assert.strictEqual(res.statusCode, 303);
+                }
+            },
             "used by the Hub Client": context
         }
     };
