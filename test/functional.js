@@ -90,11 +90,14 @@ function captureContext(batchContext) {
                     });
                 }
 
-                page.open(lastTopic.url, function (status) {
-                    if (status !== "success") {
-                        vow.callback(new Error("Failed to load page, URL: " + lastTopic.url +
-                               ", status: " + status));
-                    }
+                // Wrap in nextTick() to prevent timing problems.
+                process.nextTick(function () {
+                    page.open(lastTopic.url, function (status) {
+                        if (status !== "success") {
+                            vow.callback(new Error("Failed to load page, URL: " + lastTopic.url +
+                                   ", status: " + status));
+                        }
+                    });
                 });
             });
         },
