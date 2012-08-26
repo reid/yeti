@@ -84,9 +84,15 @@ function captureContext(batchContext) {
                         console.log("HTTP GET for", lastTopic.url,
                             "status code was", res.statusCode,
                             "with headers", res.headers);
+                        console.log("http.globalAgent sockets.length",
+                            Object.keys(http.globalAgent.sockets).length,
+                            "maxSockets", http.globalAgent.maxSockets);
                     }).on("error", function (err) {
                         console.log("HTTP GET for ", lastTopic.url,
                             "failed with", err.message);
+                        console.log("http.globalAgent sockets.length",
+                            Object.keys(http.globalAgent.sockets).length,
+                            "maxSockets", http.globalAgent.maxSockets);
                     });
                 }
 
