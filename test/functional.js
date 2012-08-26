@@ -59,7 +59,8 @@ function captureContext(batchContext) {
             browser.createPage(function (page) {
                 var timeout = setTimeout(function () {
                     vow.callback(new Error("The capture page took too long to load."));
-                }, 5000);
+                }, 10000),
+                    openAttempts = 0;
 
                 lastTopic.client.once("agentConnect", function (agent) {
                     lastTopic.client.once("agentSeen", function () {
@@ -104,12 +105,22 @@ function captureContext(batchContext) {
                     });
                 }
 
-                page.open(lastTopic.url, function (status) {
-                    if (status !== "success") {
-                        vow.callback(new Error("Failed to load page, URL: " + lastTopic.url +
-                               ", status: " + status));
-                    }
-                });
+                (function opener() {
+                    page.open(lastTopic.url, function (status) {
+                        if (status !== "success") {
+                            openAttempts += 1;
+                            if (openAttempts > 5) {
+                                vow.callback(new Error("Failed to load page, URL: " + lastTopic.url +
+                                       ", status: " + status));
+                                return;
+                            }
+                            console.log("Failed to open load page, URL: " + lastTopic.url +
+                                ", attempt " + openAttempts +
+                                ", scheduling next attempt in 500ms.");
+                            setTimeout(opener, 500);
+                        }
+                    });
+                }());
             });
         },
         "did not throw": didNotThrow,
