@@ -60,12 +60,14 @@ function captureContext(batchContext) {
                 var timeout = setTimeout(function () {
                     vow.callback(new Error("The capture page took too long to load."));
                 }, 10000),
-                    openAttempts = 0;
+                    openAttempts = 0,
+                    loaded = false;
 
                 lastTopic.client.once("agentConnect", function (agent) {
                     lastTopic.client.once("agentSeen", function () {
                         page.evaluate(getPathname, function (url) {
                             clearTimeout(timeout);
+                            loaded = true;
                             vow.callback(null, {
                                 url: url,
                                 page: page,
@@ -114,10 +116,16 @@ function captureContext(batchContext) {
                                        ", status: " + status));
                                 return;
                             }
-                            console.log("Failed to open load page, URL: " + lastTopic.url +
-                                ", attempt " + openAttempts +
-                                ", scheduling next attempt in 500ms.");
-                            setTimeout(opener, 500);
+                            if (!loaded) {
+                                console.log("Failed to open load page, URL: " + lastTopic.url +
+                                    ", attempt " + openAttempts +
+                                    ", scheduling next attempt in 500ms.");
+                                setTimeout(opener, 500);
+                            } else {
+                                console.log("Already loaded, ignoring for " + lastTopic.url);
+                            }
+                        } else {
+                            console.log("Load successful for " + lastTopic.url);
                         }
                     });
                 }());
