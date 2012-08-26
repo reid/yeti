@@ -80,6 +80,14 @@ function captureContext(batchContext) {
                             "PhantomJS console message:"
                         ].concat(Array.prototype.slice.apply(arguments)));
                     });
+                    http.get(lastTopic.url, function (res) {
+                        console.log("HTTP GET for", lastTopic.url,
+                            "status code was", res.statusCode,
+                            "with headers", res.headers);
+                    }).on("error", function (err) {
+                        console.log("HTTP GET for ", lastTopic.url,
+                            "failed with", err.message);
+                    });
                 }
 
                 if (process.env.RESOURCE_DEBUG) {
