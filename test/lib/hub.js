@@ -52,6 +52,9 @@ var clientContext = exports.clientContext = function (subContext) {
                     hub = new Hub();
                 hub.listen(function () {
                     hub.removeListener("error", vow.callback);
+                    if (process.env.TRAVIS) {
+                        console.log("HTTP server ready on port", hub.server.address().port);
+                    }
                     vow.callback(null, hub);
                 });
                 hub.once("error", vow.callback);
@@ -79,6 +82,11 @@ var clientContext = exports.clientContext = function (subContext) {
                 },
                 "returns the correct response code": function (res) {
                     assert.strictEqual(res.statusCode, 303);
+                    if (process.env.TRAVIS) {
+                        console.log("Asserted HTTP server is OK after sending",
+                            res.connection._httpMessage._header, "got code",
+                            res.statusCode);
+                    }
                 }
             },
             "used by the Hub Client": context
