@@ -229,6 +229,54 @@ function createBatchTopic(createBatchConfiguration) {
     };
 }
 
+function fileRequestContext(createBatchConfiguration) {
+    return captureContext({
+        topic: function (pageTopic, browser, lastTopic, hub) {
+            var vow = this,
+                fileRequestCalls = [],
+                timeout = setTimeout(function () {
+                    vow.callback(new Error("Batch dispatch failed for " + lastTopic.url));
+                    process.exit(1);
+                }, 20000),
+                batch;
+
+            hub.on("fileRequest", function (filename, buffer, cb) {
+                fileRequestCalls.push([filename, buffer]);
+                cb(buffer);
+            });
+
+            batch = lastTopic.client.createBatch(createBatchConfiguration);
+
+            batch.on("complete", function () {
+                lastTopic.client.once("agentSeen", function (agent) {
+                    clearTimeout(timeout);
+                    pageTopic.page.evaluate(getPathname, function (pathname) {
+                        pageTopic.page.release();
+                        vow.callback(null, {
+                            expectedPathname: pageTopic.url,
+                            finalPathname: pathname,
+                            fileRequestCalls: fileRequestCalls
+                        });
+                    });
+                });
+            });
+        },
+        "did not throw": didNotThrow,
+        "the browser returned to the capture page": function (topic) {
+            assert.strictEqual(topic.finalPathname, topic.expectedPathname);
+        },
+        "the fileRequest event was fired": function (topic) {
+            assert.ok(topic.fileRequestCalls.length > 0);
+        },
+        "the fileRequest event recieved buffers": function (topic) {
+            topic.fileRequestCalls.forEach(function (args) {
+                assert.isString(args[0]); // filename
+                assert.ok(Buffer.isBuffer(args[1])); // file content
+            });
+        }
+    });
+}
+
 function waitForPathChange(page, cb) {
     // When PhantomJS loads a new page,
     // begin checking for the new URL and
@@ -589,6 +637,9 @@ vows.describe("Yeti Functional")
     }))
     .addBatch(hub.functionalContext({
         "visits Yeti then aborts during the batch": clientFailureContext(withTests("long-async.html"))
+    }))
+    .addBatch(hub.functionalContext({
+        "visits Yeti with a fileRequest listener on the Hub": fileRequestContext(withTests("basic.html"))
     }))
     .addBatch(hub.functionalContext({
         "visits Yeti with invalid files": errorContext(withTests("this-file-does-not-exist.html"))
