@@ -18,7 +18,7 @@
     "yui3",
     "test"
   ],
-  "version": "0.2.15pre",
+  "version": "0.2.15predebug",
   "homepage": "htp://yuilibrary.com/projects/yeti",
   "repository": {
     "type": "git",
@@ -46,6 +46,7 @@
     "node": "~0.6.4 || ~0.7.11 || ~0.8.0"
   },
   "dependencies": {
+    "panic": "~0.2.1",
     "echoecho": "~0.1.0",
     "eventemitter2": "~0.4.8",
     "eventyoshi": "~0.1.2",
