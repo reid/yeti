@@ -82,7 +82,6 @@ function captureContext(batchContext) {
                     });
                 });
 
-                /*
                 if (process.env.TRAVIS) {
                     page.onConsoleMessage = function () {
                         console.log.apply(this, [
@@ -90,7 +89,6 @@ function captureContext(batchContext) {
                         ].concat(Array.prototype.slice.apply(arguments)));
                     };
                 }
-                */
 
                 page.onError = function () {
                     console.log.apply(this, [
