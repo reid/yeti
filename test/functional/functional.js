@@ -26,6 +26,11 @@ if (process.env.TRAVIS) {
     };
 }
 
+function logTravis() {
+    if (!process.env.TRAVIS) { return; }
+    console.log.apply(this, arguments);
+}
+
 // PhantomJS version check
 child_process.exec("phantomjs -v", function (err, stdout) {
     var message;
@@ -77,6 +82,7 @@ function captureContext(batchContext) {
                     });
                 });
 
+                /*
                 if (process.env.TRAVIS) {
                     page.onConsoleMessage = function () {
                         console.log.apply(this, [
@@ -84,6 +90,7 @@ function captureContext(batchContext) {
                         ].concat(Array.prototype.slice.apply(arguments)));
                     };
                 }
+                */
 
                 page.onError = function () {
                     console.log.apply(this, [
@@ -308,6 +315,7 @@ function clientFailureContext(createBatchConfiguration) {
             // the capture page.
 
             waitForPathChange(pageTopic.page, function (pathname) {
+                logTravis("path changed, path:", pathname, "visited paths:", visitedPaths);
                 visitedPaths.push(pathname);
                 if (firstPathname === null) {
                     firstPathname = pathname;
@@ -315,11 +323,13 @@ function clientFailureContext(createBatchConfiguration) {
                 // Capture page + tests + Capture page
                 // 2 + tests = full test cycle
                 if (visitedPaths.length >= 2 + createBatchConfiguration.tests.length) {
+                    logTravis("Setting final pathname.");
                     clearTimeout(timeout);
                     pageTopic.page.release();
                     finalPathname = pathname;
                     maybeCallback();
                 } else if (pathname.indexOf("fixture") !== -1) {
+                    logTravis("ending the client");
                     // The URL is a test page.
                     // Kill the Yeti Client session.
                     // We should expect the Hub to send
@@ -332,9 +342,11 @@ function clientFailureContext(createBatchConfiguration) {
                 }
             });
 
+            logTravis("Creating abort batch. tests:", createBatchConfiguration.tests.length);
             batch = lastTopic.client.createBatch(createBatchConfiguration);
 
             lastTopic.session.on("end", function () {
+                logTravis("Session ended.");
                 // Hub reports a client session disconnection.
                 sessionEndFires += 1;
                 maybeCallback();
