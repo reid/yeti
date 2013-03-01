@@ -28,7 +28,7 @@ if (process.env.TRAVIS) {
 
 function logTravis() {
     if (!process.env.TRAVIS) { return; }
-    console.log.apply(this, arguments);
+    console.log.apply(null, arguments);
 }
 
 // PhantomJS version check
