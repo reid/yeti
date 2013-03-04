@@ -171,7 +171,7 @@ function captureContext(batchContext) {
                         vow.callback(new Error("Failed to load page."));
                     }
                     lastTopic.client.once("agentConnect", function (agent) {
-                        page.release();
+                        page.close();
                     });
                 });
             });
@@ -224,7 +224,7 @@ function createBatchTopic(createBatchConfiguration) {
             lastTopic.client.once("agentSeen", function (agent) {
                 clearTimeout(timeout);
                 pageTopic.page.evaluate(getPathname, function (pathname) {
-                    pageTopic.page.release();
+                    pageTopic.page.close();
                     vow.callback(null, {
                         expectedPathname: pageTopic.url,
                         finalPathname: pathname,
@@ -323,7 +323,7 @@ function clientFailureContext(createBatchConfiguration) {
                 if (visitedPaths.length >= 2 + createBatchConfiguration.tests.length) {
                     logTravis("Setting final pathname.");
                     clearTimeout(timeout);
-                    pageTopic.page.release();
+                    pageTopic.page.close();
                     finalPathname = pathname;
                     maybeCallback();
                 } else if (pathname.indexOf("fixture") !== -1) {
