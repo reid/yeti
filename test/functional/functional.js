@@ -96,10 +96,18 @@ function captureContext(batchContext) {
                     ].concat(Array.prototype.slice.apply(arguments)));
                 };
 
-                if (process.env.TRAVIS || process.env.RESOURCE_DEBUG) {
+                if (process.env.RESOURCE_DEBUG) {
                     page.onResourceRequested = function () {
                         console.log.apply(this, [
                             "PhantomJS resource requested:"
+                        ].concat(Array.prototype.slice.apply(arguments)));
+                    };
+                }
+
+                if (process.env.TRAVIS) {
+                    page.onNavigationRequested = function () {
+                        console.log.apply(this, [
+                            "PhantomJS navigation requested:"
                         ].concat(Array.prototype.slice.apply(arguments)));
                     };
                 }
