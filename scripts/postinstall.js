@@ -14,7 +14,7 @@ function log() {
 }
 
 // Avoid fetching deps if possible. See GH-42.
-if (!fs.existsSync(path.join(__dirname, "..", "dep"))) {
+if (!existsSync(path.join(__dirname, "..", "dep"))) {
     require("./fetch_deps");
 }
 
